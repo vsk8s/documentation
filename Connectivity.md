@@ -32,6 +32,14 @@ IPVS to forward the request via IPVS to the service IP (which, as said before,
 is routable from the routers) and forwarded to a worker. The rest of the
 resolution is the same as above.
 
+### Calico
+
+Our network plugin is recommended to be set up inside the running kubernetes
+cluster. We don't want this because it might introduce cyclic dependencies and
+is far more difficult to debug. Therefore it runs under systemd. The services
+emulate all files and environment variables, just like the process would find it
+inside a real container.
+
 ## [K8router](https://github.com/vsk8s/k8router/)
 
 Our routers support several Kubernetes clusters shared between several sets of
