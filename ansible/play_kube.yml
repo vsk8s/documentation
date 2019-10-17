@@ -1,0 +1,628 @@
+---
+
+- hosts: localhost
+  connection: local
+  pre_tasks:
+    - name:
+      fail:
+        msg: "Set variable 'user' to your name on CLI (-e) or inside group_vars/all/localhost.yml and try again"
+      when: user is undefined
+
+- hosts: kube_router
+  roles:
+    - role: unbound
+      tags: unbound
+
+- hosts: kube_master
+  pre_tasks:
+    - name: Add APT key
+      become: True
+      apt_key:
+        url: "{{ apt_package_repository.url }}"
+        id: "{{ apt_package_repository.id }}"
+        state: present
+    - name: Add APT repository
+      become: True
+      apt_repository:
+        repo: "{{ apt_package_repository.repo }}"
+        state: present
+    - name: Create directories
+      become: True
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: 0750
+      with_items:
+        - /etc/calico
+        - /etc/calico/k8s
+        - /etc/calico/typha
+
+  roles:
+    # Allow non-unique cns for certificates of this CA
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: kube-apiserver
+      local_ca_unique_subject: False
+      tags:
+        - local-ca
+        - kube-scheduler
+        - kube-apiserver
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: etcd-peers
+      local_ca_both:
+        cn: "{{ ansible_fqdn }}"
+        san: "DNS:{{ ansible_nodename }},DNS:{{ ansible_fqdn }},IP:{{ansible_all_ipv4_addresses|join(',IP:')}}"
+        pem:
+          key: /etc/etcd/server-peer.key
+          cert: /etc/etcd/server-peer.cert
+      local_ca_ca:
+        cert: /etc/etcd/ca-peer.cert
+        crl: /etc/etcd/ca-peer.crl
+      tags:
+        - local-ca
+        - etcd
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: etcd-clients
+      local_ca_both:
+        cn: "{{ ansible_fqdn }}"
+        san: "DNS:{{ ansible_nodename }},DNS:{{ ansible_fqdn }},IP:{{ansible_all_ipv4_addresses|join(',IP:')}}"
+        pem:
+          key: /etc/etcd/server.key
+          cert: /etc/etcd/server.cert
+      local_ca_ca:
+        cert: /etc/etcd/ca.cert
+        crl: /etc/etcd/ca.crl
+      tags:
+        - local-ca
+        - etcd
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: etcd-clients
+      local_ca_client:
+        cn: "{{ ansible_fqdn }}"
+        san: "DNS:{{ ansible_nodename }},DNS:{{ ansible_fqdn }},IP:{{ansible_all_ipv4_addresses|join(',IP:')}}"
+        pem:
+          key: /etc/kubernetes/kube-apiserver/etcd-client.key
+          cert: /etc/kubernetes/kube-apiserver/etcd-client.cert
+      local_ca_ca:
+        cert: /etc/kubernetes/kube-apiserver/etcd-ca.cert
+        crl: /etc/kubernetes/kube-apiserver/etcd-ca.crl
+      tags:
+        - local-ca
+        - etcd
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: kube-apiserver
+      local_ca_server:
+        cn: "{{ ansible_fqdn }}"
+        san: "DNS:{{ kubernetes_ha_domain_intern }},DNS:{{ kubernetes_ha_domain_extern }},DNS:{{ ansible_nodename }},DNS:{{ ansible_fqdn }},IP:{{ansible_all_ipv4_addresses|join(',IP:')}},IP:{{ kubernetes_api_service_ip }}"
+        pem:
+          key: /etc/kubernetes/kube-apiserver/server.key
+          cert: /etc/kubernetes/kube-apiserver/server.cert
+      local_ca_ca:
+        cert: /etc/kubernetes/kube-apiserver/ca.cert
+        crl: /etc/kubernetes/kube-apiserver/ca.crl
+      tags:
+        - local-ca
+        - kube-apiserver
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: kube-apiserver
+      local_ca_ca:
+        cert: /etc/kubernetes/kube-scheduler/ca.cert
+      local_ca_client:
+        cn: "system:kube-scheduler"
+        pem:
+          key: /etc/kubernetes/kube-scheduler/client.key
+          cert: /etc/kubernetes/kube-scheduler/client.cert
+      tags:
+        - local-ca
+        - kube-scheduler
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: kube-apiserver
+      local_ca_ca:
+        cert: /etc/kubernetes/kube-controller-manager/ca.cert
+      local_ca_client:
+        cn: "system:kube-controller-manager"
+        pem:
+          key: /etc/kubernetes/kube-controller-manager/client.key
+          cert: /etc/kubernetes/kube-controller-manager/client.cert
+      tags:
+        - local-ca
+        - kube-controller-manager
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: kubelet
+      local_ca_ca:
+        cert: /etc/kubernetes/kube-apiserver/kubelet-client-ca.cert
+      local_ca_client:
+        org: "kube-apiserver"
+        cn: "kube-apiserver-{{ ansible_fqdn }}"
+        pem:
+          key: /etc/kubernetes/kube-apiserver/kubelet-client.key
+          cert: /etc/kubernetes/kube-apiserver/kubelet-client.cert
+      tags:
+        - local-ca
+        - kube-apiserver
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0640
+      local_ca_caname: kube-apiserver
+      local_ca_ca:
+        cert: /etc/calico/k8s/ca.crt
+      tags:
+        - local-ca
+        - calico-typha
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0640
+      local_ca_caname: typha
+      local_ca_ca:
+        cert: /etc/calico/typha/ca.pem
+      local_ca_server:
+        cn: "{{ ansible_fqdn }}"
+        san: "DNS:{{ kubernetes_ha_domain_intern }},DNS:{{ kubernetes_ha_domain_extern }},DNS:{{ ansible_nodename }},DNS:{{ ansible_fqdn }},IP:{{ansible_all_ipv4_addresses|join(',IP:')}},URI:spiffe://{{ kubernetes_ha_domain_intern }}/calico/typha-server"
+        pem:
+          key: /etc/calico/typha/server.key
+          cert: /etc/calico/typha/server.cert
+      tags:
+        - local-ca
+        - calico-typha
+
+- hosts: kube_router
+  pre_tasks:
+    - name: Add APT key
+      become: True
+      apt_key:
+        url: "{{ apt_package_repository.url }}"
+        id: "{{ apt_package_repository.id }}"
+        state: present
+    - name: Add APT repository
+      become: True
+      apt_repository:
+        repo: "{{ apt_package_repository.repo }}"
+        state: present
+    - name: Add backports repository
+      become: True
+      apt_repository:
+        repo: "deb http://deb.debian.org/debian {{ ansible_distribution_release }}-backports main"
+        state: present
+    - name: Refresh cache
+      become: True
+      apt:
+        update_cache: True
+
+  roles:
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: kube-apiserver
+      local_ca_ca:
+        cert: /etc/k8router/k8s/ca.cert
+      local_ca_client:
+        cn: "k8router"
+        pem:
+          key: /etc/k8router/k8s/client.key
+          cert: /etc/k8router/k8s/client.cert
+      tags:
+        - local-ca
+        - k8router
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: kube-apiserver
+      local_ca_ca:
+        cert: /etc/haproxy/kube-apiserver.ca.crt
+      local_ca_dhparam:
+        dest: "/etc/haproxy/dh.pem"
+      tags:
+        - local-ca
+        - haproxy
+
+    - role: router
+      tags: router
+
+    - role: haproxy
+      haproxy_ssl_dhparams_pem: "/etc/haproxy/dh.pem"
+      tags:
+        - haproxy
+
+    - role: router-k8s
+      tags: router-k8s
+
+    - role: tectonic-router
+      tags: tectonic-router
+
+    - role: dns-api
+      tags: dns-api
+
+    - role: local-ca
+      local_ca_caname: dns-api
+      local_ca_owner: dnsapi
+      local_ca_group: dnsapi
+      local_ca_mode: 0600
+      local_ca_server:
+        cn: "{{ ansible_fqdn }}"
+        san: "DNS:{{ ansible_nodename }},DNS:{{ ansible_fqdn }}"
+        pem:
+          key: /etc/dnsapi/key.pem
+          chain: /etc/dnsapi/cert.pem
+      tags:
+        - local-ca
+        - dns-api
+
+  post_tasks:
+    - name: Restart dnsapi with certificates present
+      become: True
+      service:
+        name: dns-api
+        state: restarted
+      tags:
+        - local-ca
+        - dns-api
+
+- hosts: kube_router
+  roles:
+    - role: local-ca
+      local_ca_caname: dns-api
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0600
+      local_ca_client:
+        cn: "{{ ansible_fqdn }}"
+        san: "DNS:{{ ansible_nodename }},DNS:{{ ansible_fqdn }}"
+        pem:
+          key: /etc/certbot/key.pem
+          cert: /etc/certbot/cert.pem
+      local_ca_ca:
+        cert: /etc/certbot/ca.pem
+      tags:
+        - local-ca
+        - certbot-eth
+
+    - role: certbot
+      tags: certbot
+
+    - role: kube-config
+      kube_config_path: /etc/k8router/k8s/kubeconfig.yml
+      kube_config_cluster: "cluster"
+      kube_config_server: "https://{{ kubernetes_ha_domain_intern }}:443"
+      kube_config_cert: "/etc/k8router/k8s/client.cert"
+      kube_config_key: "/etc/k8router/k8s/client.key"
+      kube_config_ca: "/etc/k8router/k8s/ca.cert"
+      tags:
+        - k8router
+
+    - role: k8router
+      tags: k8router
+
+- hosts: kube_master
+  roles:
+    - role: etcd
+      tags: etcd
+
+    - role: kube-apiserver
+      tags: kube-apiserver
+
+    - role: kube-config
+      kube_config_path: /etc/kubernetes/kube-scheduler/kubeconfig.yml
+      kube_config_cluster: "cluster"
+      kube_config_server: "https://{{ kubernetes_ha_domain_intern }}:443"
+      kube_config_cert: "/etc/kubernetes/kube-scheduler/client.cert"
+      kube_config_key: "/etc/kubernetes/kube-scheduler/client.key"
+      kube_config_ca: "/etc/kubernetes/kube-scheduler/ca.cert"
+      tags:
+        - kube-scheduler
+
+    - role: kube-config
+      kube_config_path: /etc/kubernetes/kube-controller-manager/kubeconfig.yml
+      kube_config_cluster: "cluster"
+      kube_config_server: "https://{{ kubernetes_ha_domain_intern }}:443"
+      kube_config_cert: "/etc/kubernetes/kube-controller-manager/client.cert"
+      kube_config_key: "/etc/kubernetes/kube-controller-manager/client.key"
+      kube_config_ca: "/etc/kubernetes/kube-controller-manager/ca.cert"
+      tags:
+        - kube-controller-manager
+
+    - role: kube-scheduler
+      tags: kube-scheduler
+
+    - role: kube-controller-manager
+      tags: kube-controller-manager
+
+- hosts: local
+  roles:
+    - role: local-ca
+      delegate_facts: True
+      local_ca_owner: "{{ ansible_user_id }}"
+      local_ca_group: "{{ ansible_user_gid }}"
+      local_ca_mode: 0640
+      local_ca_caname: kube-apiserver
+      local_ca_client:
+        org: "system:masters" # kubernetes cluster admin group
+        cn: "{{ user }}"
+        pem:
+          key: "{{ ansible_user_dir }}/.kube/ansible-client.key"
+          cert: "{{ ansible_user_dir }}/.kube/ansible-client.crt"
+      local_ca_ca:
+        cert: "{{ ansible_user_dir }}/.kube/ansible-client.ca.crt"
+      tags:
+        - local-ca
+        - local
+        - admin-kubeconfig
+
+    - role: kube-config
+      kube_config_path: "{{ ansible_user_dir }}/.kube/ansible-config.conf"
+      kube_config_cluster: "cluster"
+      kube_config_server: "https://{{ kubernetes_ha_domain_extern }}:443"
+      kube_config_key: "{{ ansible_user_dir }}/.kube/ansible-client.key"
+      kube_config_cert: "{{ ansible_user_dir }}/.kube/ansible-client.crt"
+      kube_config_ca: "{{ ansible_user_dir }}/.kube/ansible-client.ca.crt"
+      kube_config_owner: "{{ ansible_user_id }}"
+      kube_config_group: "{{ ansible_user_gid }}"
+      tags:
+        - local
+        - admin-kubeconfig
+
+- hosts: local
+  gather_facts: no  # we actually don't want to connect to any host
+  roles:
+    - role: calico-kube-resources
+      calico_kube_resources_kubeconfig: "~/.kube/ansible-config.conf"
+      tags:
+        - calico
+        - calico-kube-resources
+        - local
+
+    - role: k8router-kube-resources
+      k8router_kube_resources_kubeconfig: "~/.kube/ansible-config.conf"
+      tags:
+        - k8router
+        - k8router-kube-resources
+        - local
+
+    - role: kube-defaults
+      kube_defaults_kubeconfig: "~/.kube/ansible-config.conf"
+      tags:
+        - kube-defaults
+        - local
+
+    - role: ingress-nginx
+      ingress_nginx_resource_kubeconfig: "~/.kube/ansible-config.conf"
+      ingress_nginx_loadbalancer_cidr: '{{ router_network_whose_http_headers_you_trust }}'
+      tags:
+        - ingress-nginx
+        - local
+
+    - role: kube-dns
+      kube_dns_kubeconfig: "~/.kube/ansible-config.conf"
+      tags:
+        - kube-dns
+        - local
+
+- hosts: kube_master
+  roles:
+    - role: kube-token
+      kube_token_namespace: "kube-system"
+      kube_token_name: "calico-node"
+      kube_token_path: /etc/calico/k8s/token
+      kube_token_ca_path: /etc/calico/k8s/ca.crt
+      kube_token_kubeconfig: "~/.kube/ansible-config.conf"
+      tags:
+        - calico-typha
+        - kube-token
+
+    - role: calico-typha
+      tags: calico-typha
+
+# Set up the worker nodes
+- hosts: kube_worker
+  pre_tasks:
+    - name: Add APT key
+      become: True
+      apt_key:
+        url: "{{ apt_package_repository.url }}"
+        id: "{{ apt_package_repository.id }}"
+        state: present
+    - name: Add APT repository
+      become: True
+      apt_repository:
+        repo: "{{ apt_package_repository.repo }}"
+        state: present
+    - name: Create directories
+      become: True
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: 0750
+      with_items:
+        - /etc/calico
+        - /etc/calico/k8s
+        - /etc/calico/typha
+  roles:
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: kube-apiserver
+      local_ca_ca:
+        cert: /etc/kubernetes/kube-proxy/ca.cert
+      local_ca_client:
+        cn: "system:kube-proxy"
+        pem:
+          key: /etc/kubernetes/kube-proxy/client.key
+          cert: /etc/kubernetes/kube-proxy/client.cert
+      tags:
+        - local-ca
+        - kube-proxy
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: kube-apiserver
+      local_ca_ca:
+        cert: /etc/kubernetes/kubelet/ca.cert
+      local_ca_client:
+        org: "system:nodes"
+        cn: "system:node:{{ ansible_fqdn }}"
+        pem:
+          key: /etc/kubernetes/kubelet/client.key
+          cert: /etc/kubernetes/kubelet/client.cert
+      tags:
+        - local-ca
+        - kubelet
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: kubelet
+      local_ca_ca:
+        cert: /etc/kubernetes/kubelet/server-ca.crt
+      local_ca_server:
+        cn: "{{ ansible_fqdn }}"
+        san: "DNS:{{ ansible_nodename }},DNS:{{ ansible_fqdn }},IP:{{ ansible_all_ipv4_addresses | join(',IP:') }}"
+        pem:
+          key: /etc/kubernetes/kubelet/server.key
+          cert: /etc/kubernetes/kubelet/server.cert
+      tags:
+        - local-ca
+        - kubelet
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0640
+      local_ca_caname: typha
+      local_ca_ca:
+        cert: /etc/calico/typha/ca.pem
+      local_ca_client:
+        cn: "cl-{{ ansible_fqdn }}"
+        san: "URI:spiffe://{{ kubernetes_ha_domain_intern }}/calico/typha"
+        pem:
+          key: /etc/calico/typha/client.key
+          cert: /etc/calico/typha/client.cert
+      tags:
+        - local-ca
+        - calico-node
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0644
+      local_ca_caname: kube-apiserver
+      local_ca_ca:
+        cert: /etc/calico/k8s/ca.cert
+      local_ca_client:
+        cn: "calico-node"
+        pem:
+          key: /etc/calico/k8s/client.key
+          cert: /etc/calico/k8s/client.cert
+      tags:
+        - local-ca
+        - calico-node
+
+    - role: local-ca
+      local_ca_owner: root
+      local_ca_group: root
+      local_ca_mode: 0640
+      local_ca_caname: kube-apiserver
+      local_ca_ca:
+        cert: /etc/calico/k8s/ca.crt
+      tags:
+        - local-ca
+        - calico-typha
+
+- hosts: kube_worker
+  roles:
+    - role: kube-config
+      kube_config_path: /etc/kubernetes/kube-proxy/kubeconfig.yml
+      kube_config_cluster: "cluster"
+      kube_config_server: "https://{{ kubernetes_ha_domain_intern }}:443"
+      kube_config_cert: "/etc/kubernetes/kube-proxy/client.cert"
+      kube_config_key: "/etc/kubernetes/kube-proxy/client.key"
+      kube_config_ca: "/etc/kubernetes/kube-proxy/ca.cert"
+      tags:
+        - kube-proxy
+
+    - role: kube-config
+      kube_config_path: /etc/kubernetes/kubelet/kubeconfig.yml
+      kube_config_cluster: "cluster"
+      kube_config_server: "https://{{ kubernetes_ha_domain_intern }}:443"
+      kube_config_cert: "/etc/kubernetes/kubelet/client.cert"
+      kube_config_key: "/etc/kubernetes/kubelet/client.key"
+      kube_config_ca: "/etc/kubernetes/kubelet/ca.cert"
+      tags:
+        - kubelet
+
+    - role: kube-config
+      kube_config_path: /etc/calico/k8s/kubeconfig.yml
+      kube_config_cluster: "cluster"
+      kube_config_server: "https://{{ kubernetes_ha_domain_intern }}:443"
+      kube_config_cert: "/etc/calico/k8s/client.cert"
+      kube_config_key: "/etc/calico/k8s/client.key"
+      kube_config_ca: "/etc/calico/k8s/ca.cert"
+      tags:
+        - calico-node
+        - kube-config
+
+    - role: kube-proxy
+      tags: kube-proxy
+
+    - role: containerd
+      tags: containerd
+
+    - role: kubelet
+      tags: kubelet
+
+    - role: kube-token
+      kube_token_namespace: "kube-system"
+      kube_token_name: "calico-node"
+      kube_token_path: /etc/calico/k8s/token
+      kube_token_ca_path: /etc/calico/k8s/ca.crt
+      kube_token_kubeconfig: "~/.kube/ansible-config.conf"
+      tags:
+        - calico-node
+        - kube-token
+
+    - role: calico-node
+      tags:
+        - calico-node

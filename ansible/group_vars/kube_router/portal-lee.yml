@@ -1,0 +1,15 @@
+---
+router_external_interfaces:
+  - ens19
+
+router_internal_interfaces:
+  - ens18
+
+router_do_masquerade:
+  - outif: ens19 # Hosts
+    condition: '-s 10.0.0.0/24'
+  - outif: ens19 # Pods
+    condition: '-s {{ kubernetes_cluster_cidr }}'
+
+router_allow_int_inet: True
+

@@ -13,7 +13,8 @@ all default roles are dscribed.
 
 ## Installation
 
-The following packages are managed by us to enable Kubernetes on Debian:
+The following packages are managed by us to enable Kubernetes on Debian. You
+will need to provide them via an apt repository.
 
 * etcd
 

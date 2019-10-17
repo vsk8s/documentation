@@ -1,0 +1,3 @@
+---
+calico_node_default_route_via_bgp: True
+calico_node_default_router: "{{ kubernetes_ha_ip_intern }}"

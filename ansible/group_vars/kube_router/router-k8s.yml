@@ -1,0 +1,5 @@
+---
+router_k8s_other_routers: []
+router_k8s_internal_interface: ansible_ens18
+router_k8s_bgp_as: "{{ kubernetes_autonomous_system_number }}"
+

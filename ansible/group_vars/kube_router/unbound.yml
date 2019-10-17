@@ -1,0 +1,23 @@
+unbound_internal_interface_ip: "{{ ansible_ens18.ipv4.address }}"
+unbound_external_interface_ip: "{{ ansible_ens19.ipv4.address }}"
+unbound_internal_subnet: "10.0.0.0/24"
+unbound_public_domain: "domain.example"
+unbound_private_domain: "k8s-domain.example"
+
+  - name: "{{ unbound_public_domain }}"
+    type: typetransparent
+    local_data:
+      - "{{ kubernetes_ha_domain_intern }} IN A {{ kubernetes_ha_ip_intern }}"
+      - "kube-router-1.example IN A 10.0.0.1"
+      - "kube-router-2.example IN A 10.0.0.2"
+      - "kube-master-1.example IN A 10.0.0.3"
+      - "kube-master-2.example IN A 10.0.0.4"
+      - "kube-master-3.example IN A 10.0.0.5"
+      - "kube-worker-1.example IN A 10.0.0.6"
+      - "kube-worker-2.example IN A 10.0.0.7"
+      - "kube-worker-3.example IN A 10.0.0.8"
+
+unbound_private_dns_servers:
+  - "{{ kubernetes_dns_service_ip }}"
+# Your ISPs DNS servers
+unbound_public_dns_servers: []

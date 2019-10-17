@@ -1,0 +1,3 @@
+---
+kube_controller_manager_service_account_key: "/etc/kubernetes/kube-apiserver/service_account_key.pem"
+kube_controller_manager_apiserver_ca: "/etc/kubernetes/kube-apiserver/ca.cert"

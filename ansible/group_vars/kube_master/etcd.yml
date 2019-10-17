@@ -1,0 +1,23 @@
+---
+etcd_ip: "{{ ansible_default_ipv4.address }}"
+etcd_tls: True
+
+etcd_tls_peer_ca: /etc/etcd/ca-peer.cert
+etcd_tls_peer_cert: /etc/etcd/server-peer.cert
+etcd_tls_peer_key: /etc/etcd/server-peer.key
+etcd_tls_peer_crl: /etc/etcd/ca-peer.crl
+
+etcd_tls_client_ca: /etc/etcd/ca.cert
+etcd_tls_client_cert: /etc/etcd/server.cert
+etcd_tls_client_key: /etc/etcd/server.key
+etcd_tls_client_crl: /etc/etcd/ca.crl
+
+# Watch out! These values are hardcoded here,
+# you must update these when deploying new masters
+etcd_peers:
+  - name: kube-master-1.example
+    ip: "changeme"
+  - name: kube-master-2.example
+    ip: "changeme"
+  - name: kube-master-3.example
+    ip: "changeme"

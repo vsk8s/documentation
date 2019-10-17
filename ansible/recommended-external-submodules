@@ -1,0 +1,9 @@
+[submodule "ansible/roles/haproxy"]
+	path = ansible/roles/haproxy
+	url = https://github.com/soseth/haproxy
+[submodule "ansible/roles/local_ca"]
+	path = ansible/roles/local_ca
+	url = https://github.com/soseth/local-ca.git
+[submodule "ansible/roles/router"]
+	path = ansible/roles/router
+	url = https://github.com/soseth/router.git

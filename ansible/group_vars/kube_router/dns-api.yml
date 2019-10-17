@@ -1,0 +1,8 @@
+---
+dns_api_username: "{{ vault_dns_api_username }}"
+dns_api_password: "{{ vault_dns_api_password }}"
+dns_api_isg_group: group
+
+dns_api_key_file: /etc/dnsapi/key.pem
+dns_api_cert_file: /etc/dnsapi/cert.pem
+dns_api_zones: []

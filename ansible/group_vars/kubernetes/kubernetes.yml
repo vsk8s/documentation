@@ -1,0 +1,13 @@
+---
+kubernetes_ha_ip_intern: "changeme"
+kubernetes_ha_domain_intern: "changeme"
+kubernetes_ha_domain_extern: "changeme"
+kubernetes_cluster_domain: "changeme"
+kubernetes_autonomous_system_number: 64512
+kubernetes_ansible_worker_group: "changeme"
+kubernetes_ansible_master_group: "changeme"
+kubernetes_ansible_router_group: "changeme"
+kubernetes_cluster_cidr: "changeme"
+kubernetes_service_cidr: "changeme"
+kubernetes_api_service_ip: "changeme"
+kubernetes_dns_service_ip: "changeme"

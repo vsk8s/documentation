@@ -1,0 +1,2 @@
+---
+calico_kube_resources_router_interface: "ansible_ens18"

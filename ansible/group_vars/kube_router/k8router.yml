@@ -1,0 +1,25 @@
+---
+k8router_master_group: "kube_master"
+
+k8router_apiserver_cert: "/etc/k8router/k8s/client.cert"
+k8router_apiserver_key: "/etc/k8router/k8s/client.key"
+k8router_apiserver_ca: "/etc/k8router/k8s/ca.cert"
+
+k8router_apiserver_hostname:
+  - "{{ kubernetes_ha_domain_intern }}"
+  - "{{ kubernetes_ha_domain_extern }}"
+
+k8router_config:
+  haproxyDropinPath: /etc/haproxy/conf.d/90-k8router.conf
+  haproxyTemplatePath: /etc/k8router/template
+  clusters:
+    - name: local
+      kubeconfig: /etc/k8router/k8s/kubeconfig.yml
+  certificates:
+    - cert: "/etc/k8router/certs/domain.example"
+      name: domain
+      domains:
+        - domain.example
+        - '*.domain.example'
+# List of all external IPs of the routers
+  ips: []

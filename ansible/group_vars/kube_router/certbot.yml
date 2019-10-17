@@ -1,0 +1,9 @@
+---
+certbot_generate_test_certificates: False
+
+certbot_eth_api: "{{ ansible_fqdn }}:50051"
+certbot_eth_domains:
+  - name: domain.example
+    domains:
+      - "*.domain.example"
+      - "domain.example"

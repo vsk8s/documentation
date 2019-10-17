@@ -1,0 +1,23 @@
+---
+kube_apiserver_etcd_servers:
+  - "https://10.0.0.1:4001"
+  - "https://10.0.0.2:4001"
+  - "https://10.0.0.3:4001"
+
+kube_apiserver_etcd_cafile: /etc/kubernetes/kube-apiserver/etcd-ca.cert
+kube_apiserver_etcd_keyfile: /etc/kubernetes/kube-apiserver/etcd-client.key
+kube_apiserver_etcd_certfile: /etc/kubernetes/kube-apiserver/etcd-client.cert
+
+kube_apiserver_certfile: /etc/kubernetes/kube-apiserver/server.cert
+kube_apiserver_keyfile: /etc/kubernetes/kube-apiserver/server.key
+kube_apiserver_cafile: /etc/kubernetes/kube-apiserver/ca.cert
+kube_apiserver_client_ca: /etc/kubernetes/kube-apiserver/ca.cert
+
+kube_apiserver_kubelet_cafile: /etc/kubernetes/kube-apiserver/kubelet-client-ca.cert
+kube_apiserver_kubelet_certfile: /etc/kubernetes/kube-apiserver/kubelet-client.cert
+kube_apiserver_kubelet_keyfile: /etc/kubernetes/kube-apiserver/kubelet-client.key
+
+# some private X509 key and cert
+kube_apiserver_service_account:
+  key: "{{ vault_kube_apiserver_service_account_key }}"
+  cert: "{{ vault_kube_apiserver_service_account_cert }}"
