@@ -6,8 +6,11 @@ reachability.
 ## Routing
 
 Kubernetes heavily relies on an external load balancer which is not part of
-Kubernetes itself. Our setup uses haproxy, k8router and VRRP via keepalived for
-this. We call our external load balancers "routers".
+Kubernetes itself. Our setup uses [haproxy](https://www.haproxy.org/), k8router
+(see below) and
+[VRRP](https://en.wikipedia.org/wiki/Virtual_Router_Redundancy_Protocol) via
+[keepalived](https://www.keepalived.org/) for this. We call our external load
+balancers "routers".
 
 ### Control Plane
 
